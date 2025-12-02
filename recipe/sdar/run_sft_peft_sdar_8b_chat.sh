@@ -37,7 +37,6 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$nproc_per_node \
     data.micro_batch_size_per_gpu=4 \
     model.partial_pretrain=${MODEL_PATH} \
     model.trust_remote_code=True \
-    model.fuse_cross_entropy=false \
     +model.attn_implementation="flash_attention_2" \
     +model.fsdp_config.model_dtype=float32 \
     +model.external_lib=transformers_modules.SDAR-8B-Chat \
