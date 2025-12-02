@@ -14,7 +14,7 @@
   "debug": false,
   "eos_token_id": 151643,
   "ep_size": 1,
-  "fuse_cross_entropy": true,
+  "fuse_cross_entropy": false,
   "head_dim": 128,
   "hidden_act": "silu",
   "hidden_size": 2560,
