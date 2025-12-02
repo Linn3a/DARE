@@ -48,6 +48,7 @@ class DreamConfig(PretrainedConfig):
         attention_dropout=0.0,
         mask_token_id=151666,
         pad_token_id=151643,
+        attn_implementation="eager",
         **kwargs,
     ):
         self.vocab_size = vocab_size
@@ -84,3 +85,4 @@ class DreamConfig(PretrainedConfig):
         )
         self.mask_token_id = mask_token_id
         self.pad_token_id = pad_token_id
+        self._attn_implementation = attn_implementation

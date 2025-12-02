@@ -32,5 +32,6 @@
   "use_cache": true,
   "use_mrope": false,
   "use_sliding_window": false,
-  "vocab_size": 152064
+  "vocab_size": 152064,
+  "attn_implementation": "flash_attention_2"
 }
