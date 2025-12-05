@@ -450,7 +450,10 @@ class DLLMActorRolloutRefWorker(ActorRolloutRefWorker):
 
     @register(dispatch_mode=Dispatch.ONE_TO_ALL)
     def init_model(self):
-        from verl.workers.actor.dllm_dp_actor import DLLMDataParallelPPOActor
+        if self.config.algorithm.name == 'spg':
+            from verl.workers.actor.dllm_dp_actor_spg import DLLMDataParallelPPOActor
+        else:
+            from verl.workers.actor.dllm_dp_actor import DLLMDataParallelPPOActor
         
         # This is used to import external_lib into the huggingface systems
         import_external_libs(self.config.model.get("external_lib", None))
@@ -677,6 +680,43 @@ class DLLMActorRolloutRefWorker(ActorRolloutRefWorker):
                 p_mask = torch.stack(all_p_mask, dim=0)  # (batch_size, mc_num, seq_len)            
         elif self.config.algorithm.name == "spg":
             from verl.trainer.ppo.dllm_core_algos import _forward_process_spg as _forward_process
+            
+            block_length = self.config.rollout["block_length"]
+            
+            batch_size, seq_len = input_ids.shape
+            prompt_len = seq_len - response_length  # int
+            device = input_ids.device
+            n_y_l = mc_num // n_l  # mc_num: Monte Carlo sampling times
+
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):            
+                # Generate perturbed_seq, mask_indices, p_mask for each sample in the batch
+                all_perturbed_seqs = []
+                all_mask_indices = []
+                all_p_mask = []
+
+                for i in range(batch_size):
+                    single_input_id = input_ids[i:i+1].repeat((1, 1)).to(device)  # (1, seq_len) 
+
+                    mc_perturbed_seq_list = []
+                    mc_mask_indices_list = []
+                    mc_p_mask_list = []
+                    
+                    for j in range(n_y_l):
+                        perturbed_seq, mask_indices, p_mask = _forward_process(batch=single_input_id, attention_mask=attention_mask[i],  prompt_len=prompt_len, block_length=block_length, num_t=n_l, MASK_TOKEN_ID=MASK_TOKEN_ID)  # (n_l, seq_len)
+                        assert (mask_indices == (perturbed_seq == MASK_TOKEN_ID)).all()
+                        
+                        mc_perturbed_seq_list.append(perturbed_seq)
+                        mc_mask_indices_list.append(mask_indices)
+                        mc_p_mask_list.append(p_mask)
+                    
+                    all_perturbed_seqs.append(torch.cat(mc_perturbed_seq_list, dim=0))  # (mc_num, seq_len)
+                    all_mask_indices.append(torch.cat(mc_mask_indices_list, dim=0))  # (mc_num, seq_len)
+                    all_p_mask.append(torch.cat(mc_p_mask_list, dim=0))  # (mc_num, seq_len)
+                
+                perturbed_seq = torch.stack(all_perturbed_seqs, dim=0)  # (batch_size, mc_num, seq_len)
+                mask_indices = torch.stack(all_mask_indices, dim=0)  # (batch_size, mc_num, seq_len)
+                p_mask = torch.stack(all_p_mask, dim=0)  # (batch_size, mc_num, seq_len)
+
         else:
             NotImplementedError(f"Unsupported algorithm: {self.config.algorithm.name} for forward process in DLLMActorRolloutRefWorker")
         
