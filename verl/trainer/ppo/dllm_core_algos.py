@@ -92,7 +92,7 @@ def compute_policy_loss(
     return pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower
 
 
-def compute_policy_loss_SPG(
+def compute_policy_loss_spg(
     log_prob_positive,
     log_prob_negative,
     advantages,

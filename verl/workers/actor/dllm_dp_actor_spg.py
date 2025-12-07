@@ -26,7 +26,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 import verl.utils.torch_functional as verl_F
 from verl import DataProto
-from verl.trainer.ppo.dllm_core_algos import agg_loss, kl_penalty, compute_policy_loss_SPG
+from verl.trainer.ppo.dllm_core_algos import agg_loss, kl_penalty, compute_policy_loss_spg
 from verl.utils.debug import GPUMemoryLogger
 from verl.utils.device import get_device_name, get_torch_device, is_cuda_available, is_npu_available
 from verl.utils.fsdp_utils import FSDPModule, fsdp2_clip_grad_norm_
