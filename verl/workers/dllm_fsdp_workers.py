@@ -333,7 +333,7 @@ class DLLMActorRolloutRefWorker(ActorRolloutRefWorker):
         if rollout_name == "hf":
             if not use_cache:
                 if self.config.algorithm.name == "cj-grpo":
-                    from BGPO.verl.workers.rollout.dllm_rollout_cj import DLLMRollout
+                    from verl.workers.rollout.dllm_rollout_cj import DLLMRollout
                 elif self.config.algorithm.name == "mdpo":
                     from verl.workers.rollout.mdpo_rollout import DLLMRollout
                 else:
@@ -345,7 +345,7 @@ class DLLMActorRolloutRefWorker(ActorRolloutRefWorker):
                 # TODO: a sharding manager that do nothing?
             else:
                 if self.config.algorithm.name == "cj-grpo":
-                    from BGPO.verl.workers.rollout.fast_cj_dllm_rollout import FASTDLLMRollout
+                    from verl.workers.rollout.fast_cj_dllm_rollout import FASTDLLMRollout
                 elif self.config.algorithm.name == "mdpo":
                     from verl.workers.rollout.fast_mdpo_rollout import FASTDLLMRollout
                 else:
@@ -481,9 +481,9 @@ class DLLMActorRolloutRefWorker(ActorRolloutRefWorker):
         elif self.config.algorithm.name == 'cj-grpo':
             from verl.workers.actor.dllm_dp_actor_cj_grpo import DLLMDataParallelPPOActor
         elif self.config.algorithm.name == 'bgpo':
-            from BGPO.verl.workers.actor.dllm_dp_actor_bgpo import DLLMDataParallelPPOActor
+            from verl.workers.actor.dllm_dp_actor_bgpo import DLLMDataParallelPPOActor
         elif self.config.algorithm.name == 'd1':
-            from BGPO.verl.workers.actor.dllm_dp_actor_d1 import DLLMDataParallelPPOActor
+            from verl.workers.actor.dllm_dp_actor_d1 import DLLMDataParallelPPOActor
         else:
             raise NotImplementedError
         # This is used to import external_lib into the huggingface systems
