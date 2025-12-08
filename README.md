@@ -206,15 +206,17 @@ If you want to add more benchmarks, models, or custom datasets, please refer to 
 
 DARE is still work in progress. We are considering supporting more models for training and evaluation as soon as possible.
 
-| Model | Parameters | Training Support | Inference Acceleration/Engine |
-|-------|------------|------------------------|------------------------|
-| **LLaDA-8B-Base** | 8B | sft/rl | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
-| **LLaDA-8B-Instruct** | 8B | sft/rl | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
-| **LLaDA-1.5** | 8B | sft/rl | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
-| **Dream** | 7B | sft | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
-| **SDAR-1.7B-Chat** | 1.7B | sft | [lmdeploy](https://github.com/InternLM/lmdeploy) |
-| **SDAR-4B-Chat** | 4B | sft | [lmdeploy](https://github.com/InternLM/lmdeploy) |
-| **SDAR-8B-Chat** | 8B | sft | [lmdeploy](https://github.com/InternLM/lmdeploy) |
+| Model | Parameters | Training Support | Evaluation Support | Inference Acceleration/Engine |
+|-------|------------|------------------|--------------------|-------------------------------|
+| **LLaDA-8B-Base** | 8B | sft/rl | ✅ | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
+| **LLaDA-8B-Instruct** | 8B | sft/rl | ✅ | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
+| **LLaDA-1.5** | 8B | sft/rl | ✅ | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
+| **Dream** | 7B | sft | ✅ | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
+| **SDAR-1.7B-Chat** | 1.7B | sft | ✅ | [lmdeploy](https://github.com/InternLM/lmdeploy) |
+| **SDAR-4B-Chat** | 4B | sft | ✅ | [lmdeploy](https://github.com/InternLM/lmdeploy) |
+| **SDAR-8B-Chat** | 8B | sft | ✅ | [lmdeploy](https://github.com/InternLM/lmdeploy) |
+| **LLaDA-MoE** | 7BA1B | - | - | - |
+| **LLaDA2.0-mini** | 16BA1B | - | - | - |
 
 **TODO...**
 
