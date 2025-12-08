@@ -478,8 +478,14 @@ class DLLMActorRolloutRefWorker(ActorRolloutRefWorker):
             from verl.workers.actor.dllm_dp_actor_spg import DLLMDataParallelPPOActor
         elif self.config.algorithm.name == 'coupled-grpo':
             from verl.workers.actor.dllm_dp_actor_coupled_grpo import DLLMDataParallelPPOActor
+        elif self.config.algorithm.name == 'cj-grpo':
+            from verl.workers.actor.dllm_dp_actor_cj_grpo import DLLMDataParallelPPOActor
+        elif self.config.algorithm.name == 'bgpo':
+            from BGPO.verl.workers.actor.dllm_dp_actor_bgpo import DLLMDataParallelPPOActor
+        elif self.config.algorithm.name == 'd1':
+            from BGPO.verl.workers.actor.dllm_dp_actor_d1 import DLLMDataParallelPPOActor
         else:
-            from verl.workers.actor.dllm_dp_actor import DLLMDataParallelPPOActor
+            raise NotImplementedError
         # This is used to import external_lib into the huggingface systems
         import_external_libs(self.config.model.get("external_lib", None))
 
