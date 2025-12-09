@@ -2,11 +2,27 @@ from mmengine.config import read_base
 with read_base():
     from ..opencompass.configs.datasets.humaneval.humaneval_gen_8e312c import \
         humaneval_datasets
-    from ..opencompass.configs.models.dllm.lmdeploy_sdar_1dot7b_chat import \
-        models as lmdeploy_sdar_1dot7b_chat
+    from ..opencompass.configs.models.dllm.dream_v0_instruct_7b import \
+        models as dream_v0_instruct_7b
 datasets = humaneval_datasets
-models = lmdeploy_sdar_1dot7b_chat
-
+models = dream_v0_instruct_7b
+eval_cfg = {
+    'gen_length': 512, 
+    'gen_steps': 512, 
+    'batch_size_': 1, 
+    'batch_size': 1,
+    'model_kwargs': {
+        'attn_implementation': 'flash_attention_2',  #'sdpa'
+        'torch_dtype': 'bfloat16',
+        'device_map': 'auto',
+        'trust_remote_code': True,
+    },
+    'temperature': 0.2,
+    'top_p': 0.95,
+    'alg': 'entropy'
+}
+for model in models:
+    model.update(eval_cfg)
 from opencompass.partitioners import NumWorkerPartitioner
 from opencompass.runners import LocalRunner
 from opencompass.tasks import OpenICLInferTask

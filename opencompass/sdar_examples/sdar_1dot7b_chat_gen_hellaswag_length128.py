@@ -2,14 +2,14 @@ from mmengine.config import read_base
 with read_base():
     from ..opencompass.configs.datasets.hellaswag.hellaswag_gen_6faab5 import \
         hellaswag_datasets
-    from ..opencompass.configs.models.dllm.sdar_4b_chat import \
-        models as sdar_4b_chat
+    from ..opencompass.configs.models.dllm.sdar_1dot7b_chat import \
+        models as sdar_1dot7b_chat
 datasets = hellaswag_datasets
-models = sdar_4b_chat
+models = sdar_1dot7b_chat
 eval_cfg = {
-    'gen_length': 3, 
-    'block_length': 3,
-    'gen_steps': 3, 
+    'gen_length': 128, 
+    'block_length': 4,
+    'gen_steps': 4, 
     'batch_size': 1, 
     'batch_size_': 1,
     'model_kwargs': {

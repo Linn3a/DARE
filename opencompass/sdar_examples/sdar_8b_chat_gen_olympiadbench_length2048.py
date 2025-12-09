@@ -11,7 +11,7 @@ models = sdar_8b_chat
 eval_cfg = {
     'gen_length': 2048,
     'block_length': 4,
-    'gen_steps': 2048, 
+    'gen_steps': 4, 
     'batch_size': 1, 
     'batch_size_': 1,
     'model_kwargs': {

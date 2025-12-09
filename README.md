@@ -56,7 +56,7 @@ DARE aims to be both flexible and user-friendly to use with:
   - Support flash_attn_with_kvcache
   - Support sequence_parallel
 - **Comprehensive Evaluation for dLLMs**
-  - Integrate [OpenCompass](https://github.com/open-compass/opencompass) framework with faster inference
+  - Integrate [opencompass](https://github.com/open-compass/opencompass) framework with faster inference
 - **Model Diversity**
   - dLLM that trained from scratch (e.g., LLaDA)
   - dLLM that continuous trained from AR, i.e., AR-to-Diffusion (e.g., Dream, SDAR)
@@ -206,15 +206,17 @@ If you want to add more benchmarks, models, or custom datasets, please refer to 
 
 DARE is still work in progress. We are considering supporting more models for training and evaluation as soon as possible.
 
-| Model | Parameters | Training Support | Inference Acceleration/Engine |
-|-------|------------|------------------------|------------------------|
-| **LLaDA-8B-Base** | 8B | sft/rl | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
-| **LLaDA-8B-Instruct** | 8B | sft/rl | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
-| **LLaDA-1.5** | 8B | sft/rl | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
-| **Dream** | 7B | sft | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
-| **SDAR-1.7B-Chat** | 1.7B | sft | [lmdeploy](https://github.com/InternLM/lmdeploy) |
-| **SDAR-4B-Chat** | 4B | sft | [lmdeploy](https://github.com/InternLM/lmdeploy) |
-| **SDAR-8B-Chat** | 8B | sft | [lmdeploy](https://github.com/InternLM/lmdeploy) |
+| Model | Params | Training Support | Evaluation Support | Inference Acceleration |
+|-------|------------|------------------|--------------------|-------------------------------|
+| **LLaDA-8B-Base** | 8B | sft/rl | ✅ | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
+| **LLaDA-8B-Instruct** | 8B | sft/rl | ✅ | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
+| **LLaDA-1.5** | 8B | sft/rl | ✅ | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
+| **Dream** | 7B | sft | ✅ | hf [Fast-dLLM](https://github.com/NVlabs/Fast-dLLM) |
+| **SDAR-1.7B-Chat** | 1.7B | sft | ✅ | [lmdeploy](https://github.com/InternLM/lmdeploy) |
+| **SDAR-4B-Chat** | 4B | sft | ✅ | [lmdeploy](https://github.com/InternLM/lmdeploy) |
+| **SDAR-8B-Chat** | 8B | sft | ✅ | [lmdeploy](https://github.com/InternLM/lmdeploy) |
+| **LLaDA-MoE** | 7BA1B | - | - | - |
+| **LLaDA2.0-mini** | 16BA1B | - | - | - |
 
 **TODO...**
 
@@ -237,20 +239,20 @@ DARE is still work in progress. We are considering supporting more models for tr
 
 **Baseline**
 
-| Bench\Model | LLaDA-8B-Instruct | LLaDA-8B-Instruct + Fast-dLLM | Dream | SDAR-8b-Chat | SDAR-8b-Chat + Fast-dLLM | SDAR-8b-Chat + lmdeploy |
-|-------|------------|------------------------|-------|------------|------------------------|------------------------|
-| **MMLU** | 65.24 | 65.17 | 66.83 |  |  |  |  |
-| **MMLU-Pro** | 36.82 | 34.58 | 31.89 |  |  |  |  |
-| **Hellaswag** | 75.30 | 74.41 | 63.23 |  |  |  |  |
-| **ARC-C** | 87.80 | 87.80 | 81.36 |  |  |  |  |
-| **GSM8k** | 79.68 | 78.39 | - |  |  |  |  |
-| **MATH** | 41.08 | 40.58 | - |  |  |  |  |
-| **GPQA** | 30.81 | 31.82 | 26.77 |  |  |  |  |
-| **AIME24** | 0.83 | - | 0.83 |  |  |  |  |
-| **AIME25** | 0.42 | - | - |  |  |  |  |
-| **Olympiad** | 8.95 | 9.70 | - |  |  |  |  |  |
-| **HumanEval** | 46.34 | 43.29 |  |  |  |  |  |
-| **MBPP** | 38.80 | 20.00 | - |  |  |  |  |
+| Bench\Model | LLaDA-8B-Instruct | LLaDA-8B-Instruct + Fast-dLLM | Dream-7B-Instruct | SDAR-8B-Chat | SDAR-8B-Chat + lmdeploy |
+|-------|------------|------------------------|-------|------------|------------------------|
+| **MMLU** | 65.24 | 65.17 | 66.83 | 74.84 |  |
+| **MMLU-Pro** | 36.82 | 34.58 | 31.89 |  | 85.98 |
+| **Hellaswag** | 75.30 | 74.41 | 63.23 |  | 86.78 |
+| **ARC-C** | 87.80 | 87.80 | 81.36 |  |  |
+| **GSM8k** | 79.68 | 78.39 | 83.24 | 87.64 | 87.95 |
+| **MATH** | 41.08 | 40.58 | 48.02 | 48.10 | 52.80 |
+| **GPQA** | 30.81 | 31.82 | 26.77 |  |  |
+| **AIME24** | 0.83 | 2.08 | 0.83 | 8.75 |  |
+| **AIME25** | 0.42 | 0.00 | 0.00 | 10.00 |  |
+| **Olympiad** | 8.95 | 9.70 | 12.22 | 17.81 | 17.35 |
+| **HumanEval** | 46.34 | 43.29 | 61.59 | 73.17 |  |
+| **MBPP** | 38.80 | 20.00 | 56.40 | 53.80 | 55.40 |
 
 **TODO...**
 

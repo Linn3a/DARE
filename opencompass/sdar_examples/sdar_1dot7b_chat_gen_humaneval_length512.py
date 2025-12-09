@@ -2,13 +2,14 @@ from mmengine.config import read_base
 with read_base():
     from ..opencompass.configs.datasets.humaneval.humaneval_gen_8e312c import \
         humaneval_datasets
-    from ..opencompass.configs.models.dllm.dream_v0_instruct_7b import \
-        models as dream_v0_instruct_7b
+    from ..opencompass.configs.models.dllm.sdar_1dot7b_chat import \
+        models as sdar_1dot7b_chat
 datasets = humaneval_datasets
-models = dream_v0_instruct_7b
+models = sdar_1dot7b_chat
 eval_cfg = {
-    'gen_length': 768, 
-    'gen_steps': 768, 
+    'gen_length': 512,
+    'block_length': 4, 
+    'gen_steps': 4, 
     'batch_size_': 1, 
     'batch_size': 1,
     'model_kwargs': {
@@ -17,10 +18,12 @@ eval_cfg = {
         'device_map': 'auto',
         'trust_remote_code': True,
     },
-    'temperature': 0.1,
-    'top_p': 0.9,
-    'alg': 'entropy'
+    'temperature': 1.0,
+    'top_k': 0, 
+    'top_p': 1.0,
+    'remasking': 'low_confidence_dynamic',
 }
+
 for model in models:
     model.update(eval_cfg)
 from opencompass.partitioners import NumWorkerPartitioner

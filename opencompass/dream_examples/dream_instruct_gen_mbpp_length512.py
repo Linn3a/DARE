@@ -1,15 +1,14 @@
 from mmengine.config import read_base
 with read_base():
-    from ..opencompass.configs.datasets.hellaswag.hellaswag_gen_6faab5 import \
-        hellaswag_datasets
-    from ..opencompass.configs.models.dllm.sdar_1dot7b_chat import \
-        models as sdar_1dot7b_chat
-datasets = hellaswag_datasets
-models = sdar_1dot7b_chat
+    from ..opencompass.configs.datasets.mbpp.mbpp_gen import \
+        mbpp_datasets
+    from ..opencompass.configs.models.dllm.dream_v0_instruct_7b import \
+        models as dream_v0_instruct_7b
+datasets = mbpp_datasets
+models = dream_v0_instruct_7b
 eval_cfg = {
-    'gen_length': 3, 
-    'block_length': 3,
-    'gen_steps': 3, 
+    'gen_length': 512, 
+    'gen_steps': 512, 
     'batch_size': 1, 
     'batch_size_': 1,
     'model_kwargs': {
@@ -18,12 +17,10 @@ eval_cfg = {
         'device_map': 'auto',
         'trust_remote_code': True,
     },
-    'temperature': 1.0,
-    'top_k': 0, 
-    'top_p': 1.0,
-    'remasking': 'low_confidence_dynamic',
+    'temperature': 0.2,
+    'top_p': 0.95,
+    'alg': 'entropy'
 }
-
 for model in models:
     model.update(eval_cfg)
 from opencompass.partitioners import NumWorkerPartitioner
@@ -32,8 +29,8 @@ from opencompass.tasks import OpenICLInferTask
 infer = dict(
     partitioner=dict(
         type=NumWorkerPartitioner,
-        num_worker=8,  
-        num_split=None,  
+        num_worker=8,   
+        num_split=None,   
         min_task_size=16, 
     ),
     runner=dict(

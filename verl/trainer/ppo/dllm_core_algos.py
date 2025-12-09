@@ -1,8 +1,22 @@
+# Copyright 2025 Shanghai AI Lab
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from verl.trainer.ppo.core_algos import *
 import random
 from accelerate.utils import set_seed
 
-def compute_policy_loss(
+def compute_policy_loss_bgpo(
     old_l_theta,
     l_theta,
     advantages,
@@ -78,7 +92,81 @@ def compute_policy_loss(
     return pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower
 
 
-def compute_policy_loss_SPG(
+def compute_policy_loss(
+    old_l_theta,
+    l_theta,
+    advantages,
+    response_mask,
+    ref_l_theta=None,
+    cliprange=None,
+    cliprange_low=None,
+    cliprange_high=None,
+    clip_ratio_c=3.0,
+    loss_agg_mode: str = "token-mean",
+):
+    """
+    Compute the clipped policy objective and related metrics for PPO (token-level cross-entropy losses).
+
+    Args:
+        old_l_theta (Tensor): (batch_size, response_length)
+        l_theta (Tensor): (batch_size, response_length)
+        advantages (Tensor): (batch_size, response_length)
+        response_mask (Tensor): (batch_size, response_length) 1/0 mask for valid tokens
+        cliprange (float, optional): Clipping parameter ε for standard PPO.
+        cliprange_low (float, optional): Lower clip range for dual-clip PPO. Defaults to same as `cliprange`.
+        cliprange_high (float, optional): Upper clip range for dual-clip PPO. Defaults to same as `cliprange`.
+        clip_ratio_c (float, optional): Lower bound of the ratio for dual-clip PPO. Defaults to 3.0.
+        loss_agg_mode (str, optional): Aggregation mode: 'token-mean', 'sentence-mean', etc.
+    """
+    # Ensure all inputs are tensor format
+    assert isinstance(old_l_theta, torch.Tensor), f"old_l_theta must be a tensor, got {type(old_l_theta)}"
+    assert isinstance(l_theta, torch.Tensor), f"l_theta must be a tensor, got {type(l_theta)}"
+    assert isinstance(advantages, torch.Tensor), f"advantages must be a tensor, got {type(advantages)}"
+    assert old_l_theta.shape == l_theta.shape == advantages.shape, f"old_l_theta, l_theta and advantages must have the same shape, but got {old_l_theta.shape}, {l_theta.shape} and {advantages.shape}"
+    
+    # Check if the lower bound parameter of dual-clip PPO ratio is reasonable
+    assert clip_ratio_c > 1.0, "The lower bound of the clip_ratio_c for dual-clip PPO should be greater than 1.0," + f" but get the value: {clip_ratio_c}."
+    
+    # Policy ratio r(θ)
+    ratio = torch.exp(l_theta - old_l_theta)
+
+    # KL divergence
+    if ref_l_theta is not None:
+        ppo_kl = verl_F.masked_mean(torch.exp(ref_l_theta - l_theta) - (ref_l_theta - l_theta) - 1, response_mask)
+    else:
+        ppo_kl = verl_F.masked_mean(torch.exp(old_l_theta - l_theta) - (old_l_theta - l_theta) - 1, response_mask)
+
+    pg_losses1 = -advantages * ratio  # Unclipped policy gradient loss: -A(s,a) * r(θ)
+    
+    # Set clip range, if not specified, use standard clip range
+    if cliprange_low is None:
+        cliprange_low = cliprange
+    if cliprange_high is None:
+        cliprange_high = cliprange
+    
+    # Calculate clipped policy gradient loss: -A(s,a) * clip(r(θ), 1-ε, 1+ε)
+    pg_losses2 = -advantages * torch.clamp(ratio, 1 - cliprange_low, 1 + cliprange_high)  # - clip(ratio, 1-cliprange, 1+cliprange) * A
+    
+    # Take the maximum of the two, achieve PPO's minimax objective: max(-A*r, -A*clip(r))
+    clip_pg_losses1 = torch.maximum(pg_losses1, pg_losses2)  # max(-ratio * A, -clip(ratio, 1-cliprange, 1+cliprange) * A)
+    pg_clipfrac = verl_F.masked_mean(torch.gt(pg_losses2, pg_losses1).float(), response_mask)  # Compute the clipping ratio, count how many samples are clipped
+
+    # Dual-clip PPO: When advantages are negative, set a stricter lower bound for clipping
+    # Compute lower bound loss: -A(s,a) * c, where c is the lower bound of the clipping ratio
+    pg_losses3 = -advantages * clip_ratio_c
+    clip_pg_losses2 = torch.min(pg_losses3, clip_pg_losses1)  # Take the minimum of the standard clipping loss and the lower bound loss
+    pg_clipfrac_lower = verl_F.masked_mean(torch.gt(clip_pg_losses1, pg_losses3) * (advantages < 0).float(), response_mask)
+
+    # According to the sign of advantages, choose different loss calculation methods
+    # When advantages >= 0, use standard PPO clipping; when advantages < 0, use dual-clip PPO
+    pg_losses = torch.where(advantages < 0, clip_pg_losses2, clip_pg_losses1)
+    pg_loss = agg_loss(loss_mat=pg_losses, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
+
+    # Return the policy loss, clipping ratio, KL divergence and lower bound clipping ratio
+    return pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower
+
+
+def compute_policy_loss_spg(
     log_prob_positive,
     log_prob_negative,
     advantages,
@@ -282,10 +370,6 @@ def _forward_process_spg(batch, attention_mask, prompt_len, seed=42, block_lengt
     """
     
     set_seed(seed)
-    
-    # 这里稍微有点不一样 原本的实现是 single_seq = seq[i:i+1].repeat((n_l, 1)).to(device)   所以batch里包含了 num_t
-    # 但是spg是显式的
-    # 我们可以最后再view一下
     
     b, l = batch.shape
     gen_length = l - prompt_len

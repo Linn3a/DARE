@@ -1,6 +1,4 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
-# Copyright 2023-2024 SGLang Team
-# Copyright 2025 ModelBest Inc. and/or its affiliates
+# Copyright 2025 Shanghai AI Lab
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +26,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 import verl.utils.torch_functional as verl_F
 from verl import DataProto
-from verl.trainer.ppo.dllm_core_algos import agg_loss, compute_policy_loss, kl_penalty  # NOTE: Our core algorithms
+from verl.trainer.ppo.dllm_core_algos import agg_loss, compute_policy_loss_bgpo, kl_penalty  # NOTE: Our core algorithms
 from verl.utils.debug import GPUMemoryLogger
 from verl.utils.device import get_device_name, get_torch_device, is_cuda_available, is_npu_available
 from verl.utils.fsdp_utils import FSDPModule, fsdp2_clip_grad_norm_
@@ -314,7 +312,7 @@ class DLLMDataParallelPPOActor(DataParallelPPOActor):
                         print(f"\nloss_per_sample: {loss_per_sample[0, 0, 0]}")
                         
                         # Compute policy loss
-                        pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss(
+                        pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss_bgpo(
                             old_l_theta=old_log_prob[:, i, :],  # (bsz, response_length)
                             l_theta=loss_per_sample[:, 0, :],  # (bsz, response_length)
                             advantages=advantages,

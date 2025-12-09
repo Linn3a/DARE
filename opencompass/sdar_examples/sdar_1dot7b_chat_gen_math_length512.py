@@ -14,7 +14,7 @@ summarizer = dict(
 eval_cfg = {
     'gen_length': 512,
     'block_length': 4, 
-    'gen_steps': 512, 
+    'gen_steps': 4, 
     'batch_size': 1, 
     'batch_size_': 1,
     'model_kwargs': {

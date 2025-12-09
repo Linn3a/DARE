@@ -46,6 +46,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$nproc_per_node \
     trainer.project_name=$project_name \
     trainer.experiment_name=$exp_name \
     trainer.logger=["console","wandb"] \
+    trainer.total_epochs=20 \
     trainer.total_training_steps=1000 \
     ulysses_sequence_parallel_size=1 \
     use_remove_padding=false \
@@ -54,5 +55,3 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$nproc_per_node \
 
     # Or you can do this:
     # model.target_modules=[q_proj,v_proj] \
-
-    # trainer.total_epochs=1 \

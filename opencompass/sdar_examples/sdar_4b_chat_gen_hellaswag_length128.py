@@ -1,15 +1,15 @@
 from mmengine.config import read_base
 with read_base():
-    from ..opencompass.configs.datasets.mbpp.mbpp_gen import \
-        mbpp_datasets
-    from ..opencompass.configs.models.dllm.sdar_1dot7b_chat import \
-        models as sdar_1dot7b_chat
-datasets = mbpp_datasets
-models = sdar_1dot7b_chat
+    from ..opencompass.configs.datasets.hellaswag.hellaswag_gen_6faab5 import \
+        hellaswag_datasets
+    from ..opencompass.configs.models.dllm.sdar_4b_chat import \
+        models as sdar_4b_chat
+datasets = hellaswag_datasets
+models = sdar_4b_chat
 eval_cfg = {
-    'gen_length': 1024,
+    'gen_length': 128, 
     'block_length': 4,
-    'gen_steps': 1024, 
+    'gen_steps': 4, 
     'batch_size': 1, 
     'batch_size_': 1,
     'model_kwargs': {
@@ -32,8 +32,8 @@ from opencompass.tasks import OpenICLInferTask
 infer = dict(
     partitioner=dict(
         type=NumWorkerPartitioner,
-        num_worker=8,   
-        num_split=None,   
+        num_worker=8,  
+        num_split=None,  
         min_task_size=16, 
     ),
     runner=dict(
