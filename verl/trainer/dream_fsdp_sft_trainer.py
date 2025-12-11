@@ -376,11 +376,11 @@ class FSDPdLLMSFTTrainer:
 
                 # Forward pass
                 pad_eos_token_id = (
-                    self.config.data.eos_token_id
-                    if self.config.data.eos_token_id is not None
-                    else self.tokenizer.eos_token_id
+                    self.config.data.pad_token_id
+                    if self.config.data.pad_token_id is not None
+                    else self.tokenizer.pad_token_id
                 )
-                noisy_input_ids, t, loss_mask_nonflatten = q_sample(
+                input_ids, t, loss_mask_nonflatten = q_sample(
                         input_ids,
                         maskable_mask=loss_mask.bool(),
                         mask_token_id=self.tokenizer.mask_token_id,
@@ -398,7 +398,13 @@ class FSDPdLLMSFTTrainer:
                     attention_mask.unsqueeze(1).unsqueeze(-1),
                 )
                 
-                output = self.fsdp_model(input_ids=noisy_input_ids, attention_mask=attention_mask.bool(), use_cache=False)
+                output = self.fsdp_model(
+                    input_ids=input_ids, 
+                    attention_mask=attention_mask.bool(),
+                    input_ids_position_ids=position_ids, 
+                    use_cache=False
+                )
+
                 logits = output.logits
                 shift_logits = torch.cat([logits[:, 0:1], logits[:, :-1]], dim=1).contiguous()
                 shift_labels = labels.contiguous()
@@ -420,7 +426,7 @@ class FSDPdLLMSFTTrainer:
                 batch_size, seqlen = input_ids.shape
 
                 # Forward pass
-                pad_eos_token_id = (self.config.data.eos_token_id if self.config.data.eos_token_id is not None else self.tokenizer.eos_token_id)
+                pad_eos_token_id = (self.config.data.pad_token_id if self.config.data.pad_token_id is not None else self.tokenizer.pad_token_id)
                 input_ids, t, loss_mask_nonflatten = q_sample(
                         input_ids,
                         maskable_mask=loss_mask.bool(),
@@ -444,9 +450,8 @@ class FSDPdLLMSFTTrainer:
                 # Remove padding for labels
                 labels_rmpad, _, *_ = unpad_input(labels.unsqueeze(-1), attention_mask)
                 labels_rmpad = labels_rmpad.transpose(0, 1)  # (1, total_nnz)
-                # For computing loss, need to shift
-                labels_rmpad_rolled = torch.roll(labels_rmpad, shifts=-1, dims=1)  # (1, total_nnz)
                 # Pad and slice inputs for sequence parallelism
+                labels_rmpad_rolled = torch.roll(labels_rmpad, shifts=-1, dims=1)  # (1, total_nnz)
                 labels_rmpad_sliced, _, _ = ulysses_pad_and_slice_inputs(
                     labels_rmpad_rolled, None, sp_size=get_ulysses_sequence_parallel_world_size()
                 ) # (1, total_nnz // sp) 
@@ -454,9 +459,12 @@ class FSDPdLLMSFTTrainer:
                 # Remove padding for loss mask
                 loss_mask_rmpad, _, *_ = unpad_input(loss_mask.unsqueeze(-1), attention_mask)
                 loss_mask_rmpad = loss_mask_rmpad.transpose(0, 1)  # (1, total_nnz)
-                # For computing loss, need to shift
+                # # Pad and slice inputs for sequence parallelism
                 loss_mask_rmpad_rolled = torch.roll(loss_mask_rmpad, shifts=-1, dims=1)  # (1, total_nnz)
-
+                # loss_mask_rmpad_sliced, _, _ = ulysses_pad_and_slice_inputs(
+                #     loss_mask_rmpad, None, sp_size=get_ulysses_sequence_parallel_world_size()
+                # ) # (1, total_nnz // sp) 
+               
                 chunk_size = batch_size // self.config.ulysses_sequence_parallel_size
                 sp_rank = torch.distributed.get_rank() % self.config.ulysses_sequence_parallel_size
                 
@@ -481,6 +489,10 @@ class FSDPdLLMSFTTrainer:
 
                 # Compute loss locally then gather and unpad for sequence parallelism
                 logits_rmpad_sliced = output.logits # (1, total_nnz // sp, vocab_size)
+
+                # For computing loss, need to shift
+                # labels_rmpad_sliced_rolled = torch.roll(labels_rmpad_sliced, shifts=-1, dims=1)  # (1, total_nnz)
+                # loss_mask_rmpad_rolled = torch.roll(loss_mask_rmpad_sliced, shifts=-1, dims=1)  # (1, total_nnz)
 
                 loss_rmpad_sliced = loss_fct(logits_rmpad_sliced.squeeze(0), labels_rmpad_sliced.squeeze(0)) #* loss_mask_rmpad_rolled.squeeze(0)  # (total_nnz // sp,)
                 loss_rmpad_gathered = gather_outpus_and_unpad(loss_rmpad_sliced, gather_dim=0, unpad_dim=0, padding_size=pad_size)  # (total_nnz,)

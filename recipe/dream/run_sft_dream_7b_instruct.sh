@@ -33,6 +33,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$nproc_per_node \
     data.response_key=extra_info \
     data.max_length=4096 \
     +data.mask_token_id=151666 \
+    +data.pad_token_id=151643 \
     optim.lr=1e-4 \
     data.prompt_dict_keys=['question'] \
     +data.response_dict_keys=['answer'] \
