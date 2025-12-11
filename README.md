@@ -239,10 +239,10 @@ DARE is still work in progress. We are considering supporting more models for tr
 
 **Baseline**
 
-| Bench\Model | LLaDA-8B-Instruct | LLaDA-8B-Instruct + Fast-dLLM | Dream-7B-Instruct | SDAR-8B-Chat | SDAR-8B-Chat + lmdeploy | LLaDA-Moe-7B-A1B-Instruct | LLaDA2.0-Mini|
+| Bench\Model | LLaDA-8B-Instruct | LLaDA-8B-Instruct + Fast-dLLM | Dream-7B-Instruct | SDAR-8B-Chat | SDAR-8B-Chat + lmdeploy | LLaDA-Moe-7B-A1B-Instruct | LLaDA2.0-Mini |
 |-------|------------|------------------------|-------|------------|------------------------|------------------------|------------|
 | **MMLU** | 65.24 | 65.17 | 66.83 | 75.40 |  | | |
-| **MMLU-Pro** | 36.82 | 34.58 | 31.89 |  | 37.56 | | |
+| **MMLU-Pro** | 36.82 | 34.58 | 31.89 |  | 85.98 | | |
 | **Hellaswag** | 75.30 | 74.41 | 63.23 | 67.67 | 87.59 | | |
 | **ARC-C** | 87.80 | 87.80 | 81.36 | 69.83 | 86.10 | 69.83 | 83.73 |
 | **GSM8k** | 79.68 | 78.39 | 83.24 | 88.10 | 87.95 | | |
