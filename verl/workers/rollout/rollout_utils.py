@@ -8,8 +8,7 @@ import time
 from typing import List, Dict, Any, Tuple
 from .generate import generate, generate_with_prefix_cache, generate_with_dual_cache, reversed_process, fast_reversed_process, fast_reversed_process_dual_cache
 
-### pack sequences & rollout utils ###
-
+### pack sequences ###
 def pack_sequences(
     idx_repeat: torch.Tensor,
     attention_mask_repeat: torch.Tensor,
@@ -126,7 +125,8 @@ def align_pack_counts(
     return aligned_packs
 
 
-def process_generation_outputs(
+### llada rollout utils ###
+def process_llada_generation_outputs(
     pack: Dict[str, Any],
     outputs: torch.Tensor,
     idx_repeat: torch.Tensor,
@@ -177,7 +177,6 @@ def process_generation_outputs(
         
         # Extract answers
         response_str = tokenizer.batch_decode(response, skip_special_tokens=True)[0]
-
         boxed_matches = re.findall(r"\\boxed{([^{}]*(?:\{[^{}]*\}[^{}]*)*)}", response_str, re.DOTALL)
         answer_matches = re.findall(r"<answer>(.*?)</answer>", response_str, re.DOTALL)
         
@@ -191,7 +190,7 @@ def process_generation_outputs(
     return batch_responses, batch_full_input_ids, batch_attention_masks, batch_answers
 
 
-def execute_generation(
+def execute_llada_generation(
     pack: Dict[str, Any],
     module: torch.nn.Module,
     gen_kwargs: Dict[str, Any],
@@ -229,14 +228,57 @@ def execute_generation(
     print(f"[RANK{dist.get_rank()}] {pack['batch_start_idx']}~{pack['batch_start_idx']+pack['num_sequences']} samples cost: {(time.time() - batch_start_time):.2f}s")
 
     # Process generation outputs
-    batch_responses, batch_full_input_ids, batch_attention_masks, batch_answers = process_generation_outputs(
+    batch_responses, batch_full_input_ids, batch_attention_masks, batch_answers = process_llada_generation_outputs(
         pack, outputs, idx_repeat, attention_mask_repeat, response_length, tokenizer, module.device
     )
     
     return batch_responses, batch_full_input_ids, batch_attention_masks, batch_answers
 
 
-def execute_fastdllm_generation(
+def process_fastllada_generation_outputs(
+    outputs: torch.Tensor,
+    idx_repeat: torch.Tensor,
+    attention_mask_repeat: torch.Tensor,
+    response_length: int,
+    tokenizer,
+    device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[List[str]]]:
+    # Process real data
+    batch_size = outputs.size(0)
+    prompt_length = idx_repeat.size(1)
+    
+    # 1. Extract Responses
+    # outputs structure is [Prompt, Response]
+    # We slice from prompt_length to the end to get responses
+    batch_responses = outputs[:, prompt_length:]
+
+    # 2. Full Input IDs
+    # The outputs from generate_with_prefix_cache are already the full sequences
+    batch_full_input_ids = outputs
+
+    # 3. Attention Masks
+    # Concatenate original prompt mask with all-ones mask for response
+    # Response part is fully generated, so it's all valid (1)
+    response_mask = torch.ones((batch_size, response_length), device=device, dtype=attention_mask_repeat.dtype)
+    batch_attention_masks = torch.cat([attention_mask_repeat, response_mask], dim=1)
+
+    # 4. Extract Answers
+    batch_answers = []
+    
+    # Use batch_decode for efficiency
+    decoded_responses = tokenizer.batch_decode(batch_responses, skip_special_tokens=True)
+    for response_str in decoded_responses:
+        boxed_matches = re.findall(r"\\boxed{([^{}]*(?:\{[^{}]*\}[^{}]*)*)}", response_str, re.DOTALL)
+        answer_matches = re.findall(r"<answer>(.*?)</answer>", response_str, re.DOTALL)
+        
+        answers = list(set(boxed_matches + answer_matches))  # Merge and deduplicate
+        batch_answers.append(answers)
+    
+    
+    return batch_responses, batch_full_input_ids, batch_attention_masks, batch_answers
+
+
+def execute_fastllada_generation(
     module,
     gen_kwargs: Dict[str, Any],
     idx_repeat: torch.Tensor,
@@ -303,103 +345,14 @@ def execute_fastdllm_generation(
     print(f"[RANK{rank}] FastDLLM generation for {idx_repeat.size(0)} samples cost: {(time.time() - batch_start_time):.2f}s")
 
     # Process generation outputs
-    responses, full_input_ids, attention_mask, answers = process_prefix_cache_generation_outputs(
+    responses, full_input_ids, attention_mask, answers = process_fastllada_generation_outputs(
         outputs, idx_repeat, attention_mask_repeat, response_length, tokenizer, module.device
     )
     
     return responses, full_input_ids, attention_mask, answers
 
 
-def process_prefix_cache_generation_outputs(
-    outputs: torch.Tensor,
-    idx_repeat: torch.Tensor,
-    attention_mask_repeat: torch.Tensor,
-    response_length: int,
-    tokenizer,
-    device: torch.device,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[List[str]]]:
-    # Process real data
-    batch_size = outputs.size(0)
-    prompt_length = idx_repeat.size(1)
-    
-    # 1. Extract Responses
-    # outputs structure is [Prompt, Response]
-    # We slice from prompt_length to the end to get responses
-    batch_responses = outputs[:, prompt_length:]
-
-    # 2. Full Input IDs
-    # The outputs from generate_with_prefix_cache are already the full sequences
-    batch_full_input_ids = outputs
-
-    # 3. Attention Masks
-    # Concatenate original prompt mask with all-ones mask for response
-    # Response part is fully generated, so it's all valid (1)
-    response_mask = torch.ones((batch_size, response_length), device=device, dtype=attention_mask_repeat.dtype)
-    batch_attention_masks = torch.cat([attention_mask_repeat, response_mask], dim=1)
-
-    # 4. Extract Answers
-    batch_answers = []
-    
-    # Use batch_decode for efficiency
-    decoded_responses = tokenizer.batch_decode(batch_responses, skip_special_tokens=True)
-    
-    for response_str in decoded_responses:
-        boxed_matches = re.findall(r"\\boxed{([^{}]*(?:\{[^{}]*\}[^{}]*)*)}", response_str, re.DOTALL)
-        answer_matches = re.findall(r"<answer>(.*?)</answer>", response_str, re.DOTALL)
-        
-        answers = list(set(boxed_matches + answer_matches))  # Merge and deduplicate
-        batch_answers.append(answers)
-    
-    
-    return batch_responses, batch_full_input_ids, batch_attention_masks, batch_answers
-
-
-def execute_cjdllm_generation(
-    pack: Dict[str, Any],
-    module: torch.nn.Module,
-    gen_kwargs: Dict[str, Any],
-    idx_repeat: torch.Tensor,
-    attention_mask_repeat: torch.Tensor,
-    response_length: int,
-    tokenizer,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[List[str]]]:
-    """
-    Execute the generation of a single pack, return the generation results
-    
-    Args:
-        pack: Pack info dict
-        module: Model
-        gen_kwargs: Generation parameters
-        idx_repeat: Repeated input sequences
-        attention_mask_repeat: Repeated attention masks
-        response_length: Response length
-        tokenizer: Tokenizer
-        
-    Returns:
-        batch_responses: Batch responses (batch, response_length) or None (if dummy)
-        batch_full_input_ids: Full input sequences (batch, seq_len)
-        batch_attention_masks: Batch attention masks (batch, seq_len)
-        batch_answers: Batch answer lists
-    """
-    batch_start_time = time.time()
-    outputs, reversed_traj, reversed_traj_unmask_positions = reversed_process(
-        module,
-        pack["packed_input"],
-        cu_seqlens=pack["cu_seqlens"],
-        max_seqlen=pack["max_seqlen"],
-        **gen_kwargs,
-    ) # (1, pack_seq_len) (1, steps, pack_seq_len) (1, steps, pack_seq_len)
-    print(f"[RANK{dist.get_rank()}] {pack['batch_start_idx']}~{pack['batch_start_idx']+pack['num_sequences']} samples cost: {(time.time() - batch_start_time):.2f}s")
-
-    # Process generation outputs
-    batch_responses, batch_reversed_traj, batch_reversed_traj_unmask_positions, batch_full_input_ids, batch_attention_masks, batch_answers = process_consistent_trajectory_generation_outputs(
-        pack, outputs, reversed_traj, reversed_traj_unmask_positions, idx_repeat, attention_mask_repeat, response_length, tokenizer, module.device
-    )
-    
-    return batch_responses, batch_reversed_traj, batch_reversed_traj_unmask_positions, batch_full_input_ids, batch_attention_masks, batch_answers
-
-
-def process_consistent_trajectory_generation_outputs(
+def process_cjllada_generation_outputs(
     pack: Dict[str, Any],
     outputs: torch.Tensor,
     reversed_traj: List[torch.Tensor], 
@@ -479,8 +432,98 @@ def process_consistent_trajectory_generation_outputs(
     return batch_responses, batch_reversed_traj, batch_reversed_traj_unmask_positions, batch_full_input_ids, batch_attention_masks, batch_answers
 
 
+def execute_cjllada_generation(
+    pack: Dict[str, Any],
+    module: torch.nn.Module,
+    gen_kwargs: Dict[str, Any],
+    idx_repeat: torch.Tensor,
+    attention_mask_repeat: torch.Tensor,
+    response_length: int,
+    tokenizer,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[List[str]]]:
+    """
+    Execute the generation of a single pack, return the generation results
+    
+    Args:
+        pack: Pack info dict
+        module: Model
+        gen_kwargs: Generation parameters
+        idx_repeat: Repeated input sequences
+        attention_mask_repeat: Repeated attention masks
+        response_length: Response length
+        tokenizer: Tokenizer
+        
+    Returns:
+        batch_responses: Batch responses (batch, response_length) or None (if dummy)
+        batch_full_input_ids: Full input sequences (batch, seq_len)
+        batch_attention_masks: Batch attention masks (batch, seq_len)
+        batch_answers: Batch answer lists
+    """
+    batch_start_time = time.time()
+    outputs, reversed_traj, reversed_traj_unmask_positions = reversed_process(
+        module,
+        pack["packed_input"],
+        cu_seqlens=pack["cu_seqlens"],
+        max_seqlen=pack["max_seqlen"],
+        **gen_kwargs,
+    ) # (1, pack_seq_len) (1, steps, pack_seq_len) (1, steps, pack_seq_len)
+    print(f"[RANK{dist.get_rank()}] {pack['batch_start_idx']}~{pack['batch_start_idx']+pack['num_sequences']} samples cost: {(time.time() - batch_start_time):.2f}s")
 
-def execute_fastcjdllm_generation(
+    # Process generation outputs
+    batch_responses, batch_reversed_traj, batch_reversed_traj_unmask_positions, batch_full_input_ids, batch_attention_masks, batch_answers = process_cjllada_generation_outputs(
+        pack, outputs, reversed_traj, reversed_traj_unmask_positions, idx_repeat, attention_mask_repeat, response_length, tokenizer, module.device
+    )
+    
+    return batch_responses, batch_reversed_traj, batch_reversed_traj_unmask_positions, batch_full_input_ids, batch_attention_masks, batch_answers
+
+
+def process_fastcjllada_generation_outputs(
+    outputs: torch.Tensor,
+    reversed_traj, 
+    reversed_traj_unmask_positions,
+    idx_repeat: torch.Tensor,
+    attention_mask_repeat: torch.Tensor,
+    response_length: int,
+    tokenizer,
+    device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[List[str]]]:
+    # Process real data
+    batch_size = outputs.size(0)
+    prompt_length = idx_repeat.size(1)
+    
+    # 1. Extract Responses
+    # outputs structure is [Prompt, Response]
+    # We slice from prompt_length to the end to get responses
+    batch_responses = outputs[:, prompt_length:]
+
+    # 2. Full Input IDs
+    # The outputs from generate_with_prefix_cache are already the full sequences
+    batch_full_input_ids = outputs
+
+    # 3. Attention Masks
+    # Concatenate original prompt mask with all-ones mask for response
+    # Response part is fully generated, so it's all valid (1)
+    response_mask = torch.ones((batch_size, response_length), device=device, dtype=attention_mask_repeat.dtype)
+    batch_attention_masks = torch.cat([attention_mask_repeat, response_mask], dim=1)
+
+    # 4. Extract Answers
+    batch_answers = []
+    
+    # Use batch_decode for efficiency
+    decoded_responses = tokenizer.batch_decode(batch_responses, skip_special_tokens=True)
+    
+    for response_str in decoded_responses:
+        boxed_matches = re.findall(r"\\boxed{([^{}]*(?:\{[^{}]*\}[^{}]*)*)}", response_str, re.DOTALL)
+        answer_matches = re.findall(r"<answer>(.*?)</answer>", response_str, re.DOTALL)
+        
+        answers = list(set(boxed_matches + answer_matches))  # Merge and deduplicate
+        batch_answers.append(answers)
+    
+    
+    return batch_responses, reversed_traj, reversed_traj_unmask_positions, batch_full_input_ids, batch_attention_masks, batch_answers
+
+
+def execute_fastcjllada_generation(
     module,
     gen_kwargs: Dict[str, Any],
     idx_repeat: torch.Tensor,
@@ -547,17 +590,16 @@ def execute_fastcjdllm_generation(
     print(f"[RANK{rank}] FastDLLM generation for {idx_repeat.size(0)} samples cost: {(time.time() - batch_start_time):.2f}s")
 
     # Process generation outputs
-    responses, reversed_traj, reversed_traj_unmask_positions, full_input_ids, attention_mask, answers = process_fast_consistent_trajectory_generation_outputs(
+    responses, reversed_traj, reversed_traj_unmask_positions, full_input_ids, attention_mask, answers = process_fastcjllada_generation_outputs(
         outputs, reversed_traj, reversed_traj_unmask_positions, idx_repeat, attention_mask_repeat, response_length, tokenizer, module.device
     )
     
     return responses, reversed_traj, reversed_traj_unmask_positions, full_input_ids, attention_mask, answers
 
 
-def process_fast_consistent_trajectory_generation_outputs(
+### dream rollout utils ###
+def process_dream_generation_outputs(
     outputs: torch.Tensor,
-    reversed_traj, 
-    reversed_traj_unmask_positions,
     idx_repeat: torch.Tensor,
     attention_mask_repeat: torch.Tensor,
     response_length: int,
@@ -588,7 +630,6 @@ def process_fast_consistent_trajectory_generation_outputs(
     
     # Use batch_decode for efficiency
     decoded_responses = tokenizer.batch_decode(batch_responses, skip_special_tokens=True)
-    
     for response_str in decoded_responses:
         boxed_matches = re.findall(r"\\boxed{([^{}]*(?:\{[^{}]*\}[^{}]*)*)}", response_str, re.DOTALL)
         answer_matches = re.findall(r"<answer>(.*?)</answer>", response_str, re.DOTALL)
@@ -597,4 +638,181 @@ def process_fast_consistent_trajectory_generation_outputs(
         batch_answers.append(answers)
     
     
-    return batch_responses, reversed_traj, reversed_traj_unmask_positions, batch_full_input_ids, batch_attention_masks, batch_answers
+    return batch_responses, batch_full_input_ids, batch_attention_masks, batch_answers
+
+
+def execute_dream_generation(
+    module: torch.nn.Module,
+    gen_kwargs: Dict[str, Any],
+    idx_repeat: torch.Tensor,
+    attention_mask_repeat: torch.Tensor,
+    response_length: int,
+    tokenizer,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[List[str]]]:
+    """
+    Execute the generation of a single pack, return the generation results
+    
+    Args:
+        pack: Pack info dict
+        module: Model
+        gen_kwargs: Generation parameters
+        idx_repeat: Repeated input sequences
+        attention_mask_repeat: Repeated attention masks
+        response_length: Response length
+        tokenizer: Tokenizer
+        
+    Returns:
+        batch_responses: Batch responses (batch, response_length) or None (if dummy)
+        batch_full_input_ids: Full input sequences (batch, seq_len)
+        batch_attention_masks: Batch attention masks (batch, seq_len)
+        batch_answers: Batch answer lists
+    """
+    import types
+    from .generation_utils import DreamGenerationMixin
+    module.diffusion_generate = types.MethodType(DreamGenerationMixin.diffusion_generate, module)
+    module._sample = types.MethodType(DreamGenerationMixin._sample, module)
+    steps = gen_kwargs["steps"]
+    gen_length = gen_kwargs["gen_length"]
+    block_length = gen_kwargs["block_length"]
+    temperature = gen_kwargs["temperature"]
+    remasking = gen_kwargs["remasking"]
+    mask_id = gen_kwargs["mask_id"]
+
+    batch_start_time = time.time()
+
+    outputs = module.diffusion_generate(
+        inputs=idx_repeat,
+        attention_mask=attention_mask_repeat,
+        max_new_tokens=gen_length,
+        output_history=False,
+        return_dict_in_generate=False,
+        steps=steps,
+        temperature=temperature,
+        top_p=0.95 if temperature > 0 else 1.0,
+        alg="entropy",
+        alg_temp=0.0,
+        mask_token_id=mask_id,
+    )
+
+    try:
+        rank = dist.get_rank()
+    except Exception:
+        rank = 0
+    print(f"[RANK{rank}] DLLM generation for {idx_repeat.size(0)} samples cost: {(time.time() - batch_start_time):.2f}s")
+
+    # Process generation outputs
+    responses, full_input_ids, attention_mask, answers = process_dream_generation_outputs(
+        outputs, idx_repeat, attention_mask_repeat, response_length, tokenizer, module.device
+    )
+    
+    return responses, full_input_ids, attention_mask, answers
+
+
+def process_fastdream_generation_outputs(
+    outputs: torch.Tensor,
+    idx_repeat: torch.Tensor,
+    attention_mask_repeat: torch.Tensor,
+    response_length: int,
+    tokenizer,
+    device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[List[str]]]:
+    # Process real data
+    batch_size = outputs.size(0)
+    prompt_length = idx_repeat.size(1)
+    
+    # 1. Extract Responses
+    # outputs structure is [Prompt, Response]
+    # We slice from prompt_length to the end to get responses
+    batch_responses = outputs[:, prompt_length:]
+
+    # 2. Full Input IDs
+    # The outputs from generate_with_prefix_cache are already the full sequences
+    batch_full_input_ids = outputs
+
+    # 3. Attention Masks
+    # Concatenate original prompt mask with all-ones mask for response
+    # Response part is fully generated, so it's all valid (1)
+    response_mask = torch.ones((batch_size, response_length), device=device, dtype=attention_mask_repeat.dtype)
+    batch_attention_masks = torch.cat([attention_mask_repeat, response_mask], dim=1)
+
+    # 4. Extract Answers
+    batch_answers = []
+    
+    # Use batch_decode for efficiency
+    decoded_responses = tokenizer.batch_decode(batch_responses, skip_special_tokens=True)
+    for response_str in decoded_responses:
+        boxed_matches = re.findall(r"\\boxed{([^{}]*(?:\{[^{}]*\}[^{}]*)*)}", response_str, re.DOTALL)
+        answer_matches = re.findall(r"<answer>(.*?)</answer>", response_str, re.DOTALL)
+        
+        answers = list(set(boxed_matches + answer_matches))  # Merge and deduplicate
+        batch_answers.append(answers)
+    
+    
+    return batch_responses, batch_full_input_ids, batch_attention_masks, batch_answers
+
+
+def execute_fastdream_generation(
+    module,
+    gen_kwargs: Dict[str, Any],
+    idx_repeat: torch.Tensor,
+    attention_mask_repeat: torch.Tensor,
+    response_length: int,
+    tokenizer,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[List[str]]]:
+    """
+    Execute the generation of a single pack, return the generation results
+    
+    Args:
+        pack: Pack info dict
+        module: Model
+        gen_kwargs: Generation parameters
+        idx_repeat: Repeated input sequences
+        attention_mask_repeat: Repeated attention masks
+        response_length: Response length
+        tokenizer: Tokenizer
+        
+    Returns:
+        batch_responses: Batch responses (batch, response_length) or None (if dummy)
+        batch_full_input_ids: Full input sequences (batch, seq_len)
+        batch_attention_masks: Batch attention masks (batch, seq_len)
+        batch_answers: Batch answer lists
+    """
+    import types
+    from .generation_utils_block import DreamGenerationMixin
+    module.diffusion_generate = types.MethodType(DreamGenerationMixin.diffusion_generate, module)
+    module._sample = types.MethodType(DreamGenerationMixin._sample, module)
+    steps = gen_kwargs["steps"]
+    gen_length = gen_kwargs["gen_length"]
+    block_length = gen_kwargs["block_length"]
+    temperature = gen_kwargs["temperature"]
+    remasking = gen_kwargs["remasking"]
+    mask_id = gen_kwargs["mask_id"]
+
+    batch_start_time = time.time()
+
+    outputs = module.diffusion_generate(
+        inputs=idx_repeat,
+        attention_mask=attention_mask_repeat,
+        max_new_tokens=gen_length,
+        output_history=False,
+        return_dict_in_generate=False,
+        steps=steps,
+        temperature=temperature,
+        top_p=0.95 if temperature > 0 else 1.0,
+        alg="entropy",
+        alg_temp=0.0,
+        mask_token_id=mask_id,
+    )
+
+    try:
+        rank = dist.get_rank()
+    except Exception:
+        rank = 0
+    print(f"[RANK{rank}] DLLM generation for {idx_repeat.size(0)} samples cost: {(time.time() - batch_start_time):.2f}s")
+
+    # Process generation outputs
+    responses, full_input_ids, attention_mask, answers = process_fastdream_generation_outputs(
+        outputs, idx_repeat, attention_mask_repeat, response_length, tokenizer, module.device
+    )
+    
+    return responses, full_input_ids, attention_mask, answers

@@ -1,4 +1,4 @@
-# Copyright 2025 Shanghai AI Lab
+# Copyright 2024 Bytedance Ltd. and/or its affiliates
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import time
 from verl import DataProto
 
 from verl.workers.rollout.base import BaseRollout
-from .rollout_utils import execute_fastdllm_generation
+from .rollout_utils import execute_fastdream_generation
 
 __all__ = ["DLLMRollout"]
 
@@ -95,7 +95,7 @@ class FASTDLLMRollout(BaseRollout):
             "gen_length": self.response_length,
             "block_length": self.block_length,
             "temperature": self.val_kwargs.get("temperature", self.temperature) if is_validate else self.temperature,
-            # "cfg_scale": self.cfg_scale,
+            "cfg_scale": self.cfg_scale,
             "dual_cache": self.dual_cache,
             "remasking": "low_confidence",
             "mask_id": self.MASK_TOKEN_ID,
@@ -109,7 +109,7 @@ class FASTDLLMRollout(BaseRollout):
         MAX_MODEL_LENGTH = self.config.max_num_batched_tokens  # Maximum length of packed sequences
         total_batch_size = batch_size * n_rollout
 
-        responses, full_input_ids, attention_mask, answers = execute_fastdllm_generation(
+        responses, full_input_ids, attention_mask, answers = execute_fastdream_generation(
             idx_repeat=idx_repeat,
             module=self.module,
             attention_mask_repeat=attention_mask_repeat,

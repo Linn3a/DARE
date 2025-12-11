@@ -1,4 +1,4 @@
-# Copyright 2025 Shanghai AI Lab
+# Copyright 2024 Bytedance Ltd. and/or its affiliates
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,14 +30,13 @@ import time
 
 from verl import DataProto
 
-from .base import BaseRollout
-from .rollout_utils import pack_sequences, align_pack_counts, execute_generation
-
+from verl.workers.rollout.base import BaseRollout
+from .rollout_utils import execute_fastcjladda_generation
 
 __all__ = ["DLLMRollout"]
 
 
-class DLLMRollout(BaseRollout):
+class FASTDLLMRollout(BaseRollout):
     def __init__(self, module: nn.Module, config, tokenizer):
         """A naive rollout for Diffusion LLM. Requires HuggingFace-style module."""
         super().__init__()
@@ -55,6 +54,9 @@ class DLLMRollout(BaseRollout):
         self.mc_num = config["mc_num"]  # Number of Monte Carlo samples
         self.n_l = config["n_l"]  # Number of random masks
         self.cfg_scale = config["cfg_scale"]  # Whether to use CFG
+        # cache in fastdllm
+        self.use_cache = config["use_cache"]  # Number of random masks
+        self.dual_cache = config["dual_cache"]  # Whether to use CFG
 
         # rollout related parameters
         self.n_rollout = config["n"]  # How many responses to generate for each prompt
@@ -93,80 +95,48 @@ class DLLMRollout(BaseRollout):
             "gen_length": self.response_length,
             "block_length": self.block_length,
             "temperature": self.val_kwargs.get("temperature", self.temperature) if is_validate else self.temperature,
-            "cfg_scale": self.cfg_scale,
+            # "cfg_scale": self.cfg_scale,
+            "dual_cache": self.dual_cache,
             "remasking": "low_confidence",
             "mask_id": self.MASK_TOKEN_ID,
             "mode": "train" if not is_validate else "eval",
         }
         print(f"gen_kwargs: {gen_kwargs}")
-        # if is_validate and "top_p" in self.val_kwargs:
-        #     gen_kwargs["top_p"] = self.val_kwargs["top_p"]  # NOTE: It's not used because LLaDA does not support top_p
-
-        all_responses = []
-        all_attention_masks = []
 
         idx_repeat = idx.repeat_interleave(n_rollout, dim=0)
         attention_mask_repeat = attention_mask.repeat_interleave(n_rollout, dim=0)
+
         MAX_MODEL_LENGTH = self.config.max_num_batched_tokens  # Maximum length of packed sequences
         total_batch_size = batch_size * n_rollout
 
-        # Pack all data in advance, get all packed batches on this rank
-        packs = pack_sequences(
+        responses, reversed_traj, reversed_traj_unmask_positions, full_input_ids, attention_mask, answers = execute_fastcjladda_generation(
             idx_repeat=idx_repeat,
+            module=self.module,
             attention_mask_repeat=attention_mask_repeat,
             response_length=self.response_length,
-            mask_token_id=self.MASK_TOKEN_ID,
-            max_model_length=MAX_MODEL_LENGTH,
-            device=self.module.device,
+            tokenizer=self.tokenizer,
+            gen_kwargs=gen_kwargs
         )
+    
+        if not is_validate:
+            for j in range(total_batch_size):
+                print(f"==================[RANK{dist.get_rank()}] rollout question ID: {j}=================\nGenerated answer: {answers[j]}\n==========================================")
+        else:
+            for j in range(total_batch_size):
+                print(f"==================[RANK{dist.get_rank()}] validation question ID: {j}=================\nGenerated answer: {answers[j]}\n==========================================")
 
-        # Align the number of packed batches with other ranks
-        packs = align_pack_counts(
-            packs=packs,
-            prompt_length=prompt_length,
-            response_length=self.response_length,
-            pad_token_id=self.PAD_TOKEN_ID,
-            device=self.module.device,
-        )
-
-        # Execute generation for each pack
-        for pack_idx, pack in enumerate(packs):
-            batch_responses, batch_full_input_ids, batch_attention_masks, batch_answers = execute_generation(
-                pack=pack,
-                module=self.module,
-                gen_kwargs=gen_kwargs,
-                idx_repeat=idx_repeat,
-                attention_mask_repeat=attention_mask_repeat,
-                response_length=self.response_length,
-                tokenizer=self.tokenizer,
-            )
-            
-            if not pack["is_dummy"]:  # Store results for real data
-                all_responses.append(batch_responses)   
-                all_attention_masks.append(batch_attention_masks)
-
-            # All packs (including dummy) need to call get_logprobs to keep synchronized
-            if not is_validate:
-                if pack["is_dummy"]:
-                    print(f"==================[RANK{dist.get_rank()}] dummy pack skipped==================")
-                    continue
-                for j in range(pack["num_sequences"]):
-                    print(f"==================[RANK{dist.get_rank()}] rollout question ID: {pack['batch_start_idx'] + j}=================\nGenerated answer: {batch_answers[j]}\n==========================================")
-            else:
-                for j in range(pack["num_sequences"]):
-                    print(f"==================[RANK{dist.get_rank()}] validation question ID: {pack['batch_start_idx'] + j}=================\nGenerated answer: {batch_answers[j]}\n==========================================")
-
-        responses_cat = torch.cat(all_responses, dim=0)  # (batch_size * n_rollout, response_length)
-        input_ids_cat = torch.cat([idx_repeat, responses_cat], dim=1)
+        input_ids = torch.cat([idx_repeat, responses], dim=1)
         batch = TensorDict(
             {
                 "prompts": idx_repeat,
-                "responses": responses_cat,
-                "input_ids": input_ids_cat,  # Complete prompt + response
-                "attention_mask": torch.cat(all_attention_masks, dim=0),
+                "responses": responses,
+                "input_ids": input_ids,  # Complete prompt + response
+                "attention_mask": attention_mask,
                 "position_ids": torch.cat([position_ids.repeat_interleave(n_rollout, dim=0), 
                                          position_ids[:, -1:].repeat_interleave(n_rollout, dim=0) + 
                                          torch.arange(1, self.response_length+1, device=position_ids.device)], dim=1),  # Complete position_ids, prompt is left-padded, response is right-padded
+                "reversed_traj": reversed_traj,
+                "reversed_traj_unmask_positions": reversed_traj_unmask_positions,
             },
             batch_size=total_batch_size,
         )
