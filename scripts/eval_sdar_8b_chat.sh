@@ -62,12 +62,12 @@ case "${task}" in
     work_dir=outputs/${prefix}sdar_8b_chat_gen_mmlupro_length128
     ;;
   hellaswag)
-    py_script=sdar_examples/${prefix}sdar_8b_chat_gen_hellaswag_length256.py
-    work_dir=outputs/${prefix}sdar_8b_chat_gen_hellaswag_length256
+    py_script=sdar_examples/${prefix}sdar_8b_chat_gen_hellaswag_length128.py
+    work_dir=outputs/${prefix}sdar_8b_chat_gen_hellaswag_length128
     ;;
   arcc)
-    py_script=sdar_examples/${prefix}sdar_8b_chat_gen_arcc_block8_step8_length512.py
-    work_dir=outputs/${prefix}sdar_8b_chat_gen_arcc_block8_step8_length512
+    py_script=sdar_examples/${prefix}sdar_8b_chat_gen_arcc_length512.py
+    work_dir=outputs/${prefix}sdar_8b_chat_gen_arcc_length512
     ;;
   gpqa)
     py_script=sdar_examples/${prefix}sdar_8b_chat_gen_gpqa_length128.py
@@ -78,8 +78,8 @@ case "${task}" in
     work_dir=outputs/${prefix}sdar_8b_chat_gen_humaneval_length512
     ;;
   mbpp)
-    py_script=sdar_examples/${prefix}sdar_8b_chat_gen_mbpp_block8_gen8_length512.py
-    work_dir=outputs/${prefix}sdar_8b_chat_gen_mbpp_block8_gen8_length512
+    py_script=sdar_examples/${prefix}sdar_8b_chat_gen_mbpp_length512.py
+    work_dir=outputs/${prefix}sdar_8b_chat_gen_mbpp_length512
     ;;
   gsm8k)
     py_script=sdar_examples/${prefix}sdar_8b_chat_gen_gsm8k_length256.py
@@ -89,6 +89,10 @@ case "${task}" in
     py_script=sdar_examples/${prefix}sdar_8b_chat_gen_math_length512.py
     work_dir=outputs/${prefix}sdar_8b_chat_gen_math_length512
     ;;
+  olympiad)
+    py_script=sdar_examples/${prefix}sdar_8b_chat_gen_olympiadbench_length2048.py
+    work_dir=outputs/${prefix}sdar_8b_chat_gen_olympiadbench_length2048
+    ;;
   aime2024)
     py_script=sdar_examples/${prefix}sdar_8b_chat_gen_aime2024_length2048.py
     work_dir=outputs/${prefix}sdar_8b_chat_gen_aime2024_length2048
@@ -96,10 +100,6 @@ case "${task}" in
   aime2025)
     py_script=sdar_examples/${prefix}sdar_8b_chat_gen_aime2025_length2048.py
     work_dir=outputs/${prefix}sdar_8b_chat_gen_aime2025_length2048
-    ;;
-  olympiadbench)
-    py_script=sdar_examples/${prefix}sdar_8b_chat_gen_olympiadbench_length2048.py
-    work_dir=outputs/${prefix}sdar_8b_chat_gen_olympiadbench_length2048
     ;;
   *)
     echo "Unknown task: ${task}"
