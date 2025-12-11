@@ -15,7 +15,7 @@ from opencompass.registry import MODELS
 from opencompass.utils.logging import get_logger
 from opencompass.utils.prompt import PromptList
 ##use llada generate
-from .llada_moe_generate import generate as LLaDA_Moe_generate
+from .generate import generate as LLaDAMoE_generate
 import torch.nn.functional as F
 import numpy as np
 PromptType = Union[PromptList, str]
@@ -356,7 +356,7 @@ class LLaDAMoeModel(BaseModel):
                 "The cache mechanism is not suppotred for LLaDA MoE by default."
             )
         
-        x = LLaDA_Moe_generate(
+        x = LLaDAMoE_generate(
             model = self.model,
             prompt = input_ids,
             # attention_mask = attention_mask,
@@ -496,7 +496,7 @@ class LLaDAMoeBaseModel(LLaDAMoeModel):
         self.tokenizer.padding_side = "left" 
         prompt = self.tokenizer.batch_encode_plus(prompt, padding=True, return_tensors='pt')['input_ids']
         print()
-        x = LLaDA_Moe_generate(
+        x = LLaDAMoE_generate(
             model = self.model,
             prompt = prompt.to(self.model.device),
             steps = self.gen_steps,
