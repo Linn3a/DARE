@@ -227,3 +227,9 @@ opencompass/tmp
 *.ipynb
 
 /*.sh
+=======
+*.safetensors
+__pycache__/
+*.py[cod]
+*$py.class
+
