@@ -1,4 +1,3 @@
-# from opencompass.models import LLaDAModel
 from opencompass.models import LLaDAMoeModel
 
 models = [
