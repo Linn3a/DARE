@@ -269,7 +269,7 @@ If you find our work useful, please consider citing:
 ```bibtex
 @article{yang2025dare,
   title={DARE: dLLM Alignment and Reinforcement Executor},
-  author={Yang, Jingyi, Jiang Yuxian, Hu Xuha, oShao Jing},
+  author={Yang, Jingyi, Jiang Yuxian, Hu Xuhao, oShao Jing},
   journal={URL https://github.com/yjyddq/DARE}
 }
 
