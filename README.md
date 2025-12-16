@@ -61,7 +61,7 @@ DARE aims to be both flexible and user-friendly to use with:
   - dLLM that trained from scratch (e.g., LLaDA)
   - dLLM that continuous trained from AR, i.e., AR-to-Diffusion (e.g., Dream, SDAR)
 - **Upcoming Features**
-  - MoE, LLaDA2.0, Multi-Modal, etc.
+  - Support [sglang](https://github.com/sgl-project/sglang) inference engine, Multi-Modal, etc.
 
 
 ## 🛠️ Installation and Setup
