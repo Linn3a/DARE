@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/DARE_logo.png" style="max-width:55%; height:auto;">
+  <img src="assets/DARE_logo.png" style="width:55%; height:auto;">
 </p>
 
 <div align="center">
@@ -31,13 +31,13 @@ DARE still work in progress, we plan to support more models and algorithm for tr
 - For MDLMs like LLaDA/Dream: We decouple the attention backend used during training from that used during rollout for acceleration. During rollout we require batching and KV-cache acceleration, so we choose `flash_attn_func` or `flash_attn_with_kvcache`, whereas during training we adopt `flash_attn_varlen_func` to reduce meaningless computation on padding tokens. The entire pipeline will be accelerated by approximately **4×**.
 
 <p align="center">
-  <img src="assets/optimization_plan_mdlm.png" style="max-width:75%; height:auto;">
+  <img src="assets/optimization_plan_mdlm.png" style="width:65%; height:auto;">
 </p>
 
 - For BDLMs like SDAR: We leverage the compatible lmdeploy inference engine to accelerate rollout and adopt `fused_linear_cross_entropy` (logits-free) provided by SDAR to reduce GPU memory usage; the rollout (behavior) policy also supports live update of weights. The entire pipeline will be accelerated more than **14×**.
 
 <p align="center">
-  <img src="assets/optimization_plan_bdlm.png" style="max-width:75%; height:auto;">
+  <img src="assets/optimization_plan_bdlm.png" style="width:65%; height:auto;">
 </p>
 
 ## 📢 News
