@@ -123,7 +123,6 @@ class DLLMDataParallelPPOActor(BaseDataParallelPPOActor):
         )
 
         loss = return_cls.loss
-        print(loss.shape)
         return loss
 
     @GPUMemoryLogger(role="dp actor", logger=logger)
