@@ -2,6 +2,32 @@
 set -euo pipefail
 set -x
 
+# clean residual processes
+cleanup() {
+    # kil lmdeploy residual processes
+    if [ ! -z "${LMDEPLOY_PID+x}" ] && ps -p $LMDEPLOY_PID > /dev/null 2>&1; then
+        echo "[INFO] kill lmdeploy process (PID: $LMDEPLOY_PID)..."
+        kill -9 $LMDEPLOY_PID 2>/dev/null || true
+        sleep 2
+    fi
+    
+    # clean up 23333 port
+    local port_pids=$(lsof -ti:23333 2>/dev/null || ss -tlnp | grep :23333 | awk '{print $NF}' | cut -d',' -f2 | sort -u)
+    if [ ! -z "$port_pids" ]; then
+        for pid in $port_pids; do
+            kill -9 $pid 2>/dev/null || true
+        done
+        sleep 1
+    fi
+    
+    # clean up old ray
+    ray stop --force || true
+    pkill -f "ray" || true
+    rm -rf /tmp/ray || true
+}
+
+trap cleanup EXIT INT TERM ERR
+
 # arguments parsing
 while [[ $# -gt 0 ]]; do
   key="$1"
