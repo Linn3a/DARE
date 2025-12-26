@@ -169,7 +169,7 @@ class DLLMDataParallelPPOActor(DataParallelPPOActor):
         # all return: (bsz, response_length)
         calculate_entropy = False
 
-        _, log_prob, _ = self._forward_micro_batch(micro_batch=data, 
+        _, _, log_prob = self._forward_micro_batch(micro_batch=data, 
                                             mc_num=self.mc_num, n_l=self.n_l,
                                             calculate_entropy=calculate_entropy, call_fn_name="update_policy")
 
@@ -256,7 +256,7 @@ class DLLMDataParallelPPOActor(DataParallelPPOActor):
             revert_indices = torch.tensor(get_reverse_idx(indices), dtype=torch.long)
             log_probs = log_probs[revert_indices]
             loss_per_sample = loss_per_sample[revert_indices]
-        return loss_per_sample, entropys  # loss_per_sample is stored in old_log_probs field
+        return entropy, log_probs, loss_per_sample  # loss_per_sample is stored in old_log_probs field
 
     @GPUMemoryLogger(role="dp actor", logger=logger)
     def update_policy(self, data: DataProto):
@@ -313,7 +313,7 @@ class DLLMDataParallelPPOActor(DataParallelPPOActor):
                 else:
                     loss = dpo_loss / self.gradient_accumulation
                 
-                print(f"loss: {loss}\n")
+                print(f"\nloss: {loss}\n")
                 loss.backward()  # Gradient is accumulated in model parameters, but will not be updated now
                 
             data = {
