@@ -287,8 +287,8 @@ If you want to add more benchmarks, models, or custom datasets, please refer to 
 
 | Bench\Model | LLaDA-8B-Instruct | LLaDA-8B-Instruct + Fast-dLLM | Dream-7B-Instruct | SDAR-8B-Chat | SDAR-8B-Chat + lmdeploy |
 |-------|------------|------------------------|-------|------------|------------------------|
-| **MMLU** | 65.24 | 65.17 | 66.83 | 75.40 |  |
-| **MMLU-Pro** | 36.82 | 34.58 | 31.89 | 52.07 |  |
+| **MMLU** | 65.24 | 65.17 | 66.83 | 75.40 | 75.40 |
+| **MMLU-Pro** | 36.82 | 34.58 | 31.89 | 52.07 | 52.07 |
 | **Hellaswag** | 75.30 | 74.41 | 63.23 | 67.67 | 87.59 |
 | **ARC-C** | 87.80 | 87.80 | 81.36 | 69.83 | 86.78 |
 | **GSM8k** | 79.68 | 78.39 | 83.24 | 88.10 | 87.95 |
@@ -297,7 +297,7 @@ If you want to add more benchmarks, models, or custom datasets, please refer to 
 | **AIME24** | 0.83 | 2.08 | 0.83 | 8.75 | 6.67 |
 | **AIME25** | 0.42 | 0.00 | 0.00 | 10.00 | 6.67 |
 | **Olympiad** | 8.95 | 9.70 | 12.22 | 17.81 | 17.35 |
-| **HumanEval** | 46.34 | 43.29 | 78.05 | 73.17 |  |
+| **HumanEval** | 46.34 | 43.29 | 78.05 | 73.17 | 73.17 |
 | **MBPP** | 38.80 | 20.00 | 56.40 | 53.80 | 55.40 |
 
 
